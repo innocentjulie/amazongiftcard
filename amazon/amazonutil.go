@@ -8,13 +8,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/aws/aws-sdk-go-v2/aws"
-	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"io"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 )
 
 // 参考amazon gift-card文档
@@ -80,7 +81,7 @@ type CancelGiftCardResp struct {
 	Status string `json:"status"`
 }
 
-type Callback func(...any)
+type Callback func(...interface{})
 
 // var nextWeek = time.Now().AddDate(0, 0, 7)
 var amazonCredentials = aws.Credentials{AccessKeyID: awsKeyId, CanExpire: false, SecretAccessKey: awsSecretKey} //, SessionToken: "SESSION"暂时去掉，不用这种方式获取
