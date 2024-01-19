@@ -17,6 +17,8 @@ import (
 	"time"
 )
 
+// 参考amazon gift-card文档
+// https://developer.amazon.com/zh/docs/incentives-api/digital-gift-cards.html#operations
 const (
 	ActivateGiftCard        = "ActivateGiftCard"
 	DeactivateGiftCard      = "DeactivateGiftCard"
@@ -33,6 +35,8 @@ var (
 	awsKeyId     = "AKID"
 	awsSecretKey = "SECRET"
 	serviceName  = "AGCODService"
+	//当前环境是sandbox还是production
+	env = "sandbox"
 )
 
 type Value struct {
@@ -50,22 +54,6 @@ type EndPoint struct {
 	region string
 }
 
-type Callback func(...any)
-
-// var nextWeek = time.Now().AddDate(0, 0, 7)
-var amazonCredentials = aws.Credentials{AccessKeyID: awsKeyId, CanExpire: false, SecretAccessKey: awsSecretKey, SessionToken: "SESSION"}
-
-func CreateGiftCardRequest(partnerId string, sequentialId string, amount float64, currencyCode string) *GiftCardReq {
-	return &GiftCardReq{
-		CreationRequestId: partnerId + sequentialId,
-		PartnerId:         partnerId,
-		Value: Value{
-			Amount:       amount,
-			CurrencyCode: currencyCode,
-		},
-	}
-}
-
 type GiftCardResponse struct {
 	CardInfo          CardInfo `json:"cardInfo"`
 	CreationRequestId string   `json:"creationRequestId"`
@@ -80,6 +68,32 @@ type CardInfo struct {
 	CardStatus     string `json:"cardStatus"`
 	ExpirationDate string `json:"expirationDate"`
 	Value          Value  `json:"value"`
+}
+type CancelGiftCardReq struct {
+	CreationRequestId string `json:"creationRequestId"`
+	PartnerId         string `json:"partnerId"`
+	//GcId              string `json:"gcId"`//官方文档中好像已经废弃
+}
+type CancelGiftCardResp struct {
+	CreationRequestId string `json:"creationRequestId"`
+	//GcId              string `json:"gcId"`//同上
+	Status string `json:"status"`
+}
+
+type Callback func(...any)
+
+// var nextWeek = time.Now().AddDate(0, 0, 7)
+var amazonCredentials = aws.Credentials{AccessKeyID: awsKeyId, CanExpire: false, SecretAccessKey: awsSecretKey} //, SessionToken: "SESSION"暂时去掉，不用这种方式获取
+
+func CreateGiftCardRequest(partnerId string, sequentialId string, amount float64, currencyCode string) *GiftCardReq {
+	return &GiftCardReq{
+		CreationRequestId: partnerId + sequentialId, //CreationRequestId必须已partnerId开头
+		PartnerId:         partnerId,
+		Value: Value{
+			Amount:       amount,
+			CurrencyCode: currencyCode,
+		},
+	}
 }
 
 func createGiftCardResponse(partnerId string, sequentialId string, amount float64, currencyCode string) *GiftCardResponse {
@@ -101,32 +115,21 @@ func createGiftCardResponse(partnerId string, sequentialId string, amount float6
 	}
 }
 
-type CancelGiftCardReq struct {
-	CreationRequestId string `json:"creationRequestId"`
-	PartnerId         string `json:"partnerId"`
-	GcId              string `json:"gcId"`
-}
-
 // CancelGiftCardRequest 取消礼品卡时，用到的CreationRequestId是创建时生成的唯一标识符，所以之前创建的要记录下来用于礼品卡取消
 func CancelGiftCardRequest(partnerId string, sequentialId string, gcId string) *CancelGiftCardReq {
 	return &CancelGiftCardReq{
 		CreationRequestId: partnerId + sequentialId,
 		PartnerId:         partnerId,
-		GcId:              gcId,
+		//GcId:              gcId,
 	}
 }
 
-type CancelGiftCardResp struct {
-	CreationRequestId string `json:"creationRequestId"`
-	GcId              string `json:"gcId"`
-	Status            string `json:"status"`
-}
-
+// CancelGiftCardResponse 取消礼品卡返回，返回的CreationRequestId同上，是跟请求一样的参数,不需要自己生成
 func CancelGiftCardResponse(partnerId string, sequentialId string, gcId string) *CancelGiftCardResp {
 	return &CancelGiftCardResp{
 		CreationRequestId: partnerId + sequentialId,
-		GcId:              gcId,
-		Status:            "SUCCESS",
+		//GcId:              gcId,
+		Status: "SUCCESS",
 	}
 }
 
@@ -168,29 +171,56 @@ func getCancelGiftCardRequestBody(sequentialId string, gcId string) *CancelGiftC
 }
 
 // 根据地区返回最终访问节点
+// 参考 https://developer.amazon.com/zh/docs/incentives-api/incentives-api.html#endpoints
 func getEndPointByRegion(region string) EndPoint {
-	switch region {
-	case "NA":
-		return EndPoint{
-			host:   "agcod-v2-gamma.amazon.com",
-			region: "us-east-1",
+	if env == "prod" {
+		switch region {
+		case "NA": //国家(US, CA, MX)
+			return EndPoint{
+				host:   "agcod-v2.amazon.com",
+				region: "us-east-1",
+			}
+		case "EU": //国家IT, ES, DE, FR, UK, TR, UAE, KSA, PL, NL, SE, EG
+			return EndPoint{
+				host:   "agcod-v2-eu.amazon.com",
+				region: "eu-west-1",
+			}
+		case "FE": //国家：JP, AU, SG
+			return EndPoint{
+				host:   "agcod-v2-fe.amazon.com",
+				region: "us-west-2",
+			}
+		default:
+			return EndPoint{
+				host:   "agcod-v2.amazon.com",
+				region: "us-east-1",
+			}
 		}
-	case "EU":
-		return EndPoint{
-			host:   "agcod-v2-gamma.amazon.co.uk",
-			region: "eu-west-1",
-		}
-	case "FE":
-		return EndPoint{
-			host:   "agcod-v2-gamma.amazon.co.jp",
-			region: "ap-northeast-1",
-		}
-	default:
-		return EndPoint{
-			host:   "agcod-v2-gamma.amazon.com",
-			region: "us-east-1",
+	} else {
+		switch region {
+		case "NA":
+			return EndPoint{
+				host:   "agcod-v2-gamma.amazon.com",
+				region: "us-east-1",
+			}
+		case "EU":
+			return EndPoint{
+				host:   "agcod-v2-eu-gamma.amazon.com",
+				region: "eu-west-1",
+			}
+		case "FE":
+			return EndPoint{
+				host:   "agcod-v2-fe-gamma.amazon.com",
+				region: "us-west-2",
+			}
+		default:
+			return EndPoint{
+				host:   "agcod-v2-gamma.amazon.com",
+				region: "us-east-1",
+			}
 		}
 	}
+
 }
 
 // DoCreateGiftCard 初始化请求，生成body,发送请求，处理返回结果
@@ -254,10 +284,11 @@ func buildRequestWithBodyReader(serviceName, region string, body io.Reader, poin
 	req.URL.Path = "/" + action
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
+
+	//req.Header.Set("X-Amz-Date", "20240119T070502Z")//测试信息
 	req.Header.Set("X-Amz-Date", time.Now().Format("20060102T150405Z"))
 	req.Header.Set("x-amz-target", "com.amazonaws.agcod.AGCODService."+action)
-
-	//req.Header.Set("Host", point.host)
+	req.Header.Set("Host", point.host)
 	if bodyLen > 0 {
 		req.ContentLength = int64(bodyLen)
 		//req.Header.Add("Content-Length", fmt.Sprintf("%d", bodyLen))
@@ -274,6 +305,7 @@ func buildRequestWithBodyReader(serviceName, region string, body io.Reader, poin
 	return req, payloadHash
 }
 
+// 测试环境可以使用官方工具看请求是否一样 https://s3.amazonaws.com/AGCOD/htmlSDKv2/htmlSDKv2_NAEUFE/index.html
 func sendRequest(req *http.Request) (*http.Response, error) {
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -292,6 +324,21 @@ func sendRequest(req *http.Request) (*http.Response, error) {
 	}
 
 	fmt.Println("Response:", string(body))
+	if resp.StatusCode != 200 {
+		return resp, errors.New("response code is not 200")
+	} else {
+		respStruct := &GiftCardResponse{}
+		_err := json.Unmarshal(body, respStruct)
+		if _err != nil {
+			return resp, _err
+		} else {
+			fmt.Printf("respStruct:%+v\n", respStruct)
+			//todo 存储礼品卡信息到数据库
+			//go func(){
+			//	//存储礼品卡信息到数据库
+			//}()
+		}
+	}
 
 	return resp, err
 }
