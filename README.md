@@ -1,5 +1,6 @@
 # amazongiftcard
 amazon giftcard creat agcod service
+
 ## use 
 ```
 	//fmt.Println(populatePayload("100"))
@@ -14,3 +15,5 @@ amazon giftcard creat agcod service
 		return
 	}
 ```
+ps:参考https://github.com/leadstoloyals/node-agcod/tree/master
+【https://github.com/leadstoloyals/node-agcod/tree/master】
