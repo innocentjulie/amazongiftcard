@@ -1,4 +1,4 @@
-module amazongiftcard
+module github.com/innocentjulie/amazongiftcard
 
 go 1.20
 
